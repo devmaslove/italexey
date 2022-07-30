@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:italexey/bloc/files_bloc.dart';
 import 'package:italexey/bloc/files_event.dart';
 import 'package:italexey/bloc/files_state.dart';
+import 'package:italexey/pages/file_props_page.dart';
 import 'package:italexey/resources/env.dart';
 
 class FilesPage extends StatelessWidget {
@@ -174,6 +175,19 @@ class FilesList extends StatelessWidget {
                   leading: isImage ? imageThumbWidget : fileIconWidget,
                   title: Text(fileTitle),
                   subtitle: Text('$fileExt • $fileSize'),
+                  onTap: () {
+                    Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute<bool>(
+                        builder: (context) => FilePropsPage(file: file),
+                      ),
+                    ).then((change) {
+                      if (change != null && change) {
+                        final fileTitleNew = file.title ?? '';
+                        debugPrint('changed file - $fileTitleNew');
+                      }
+                    });
+                  },
                 ),
               );
             },
