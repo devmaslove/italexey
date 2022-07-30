@@ -13,25 +13,54 @@ class FilePropsPage extends StatefulWidget {
 class _FilePropsPageState extends State<FilePropsPage> {
   final formKey = GlobalKey<FormState>();
   String newTitle = '';
+  String newDescription = '';
 
   @override
   Widget build(BuildContext context) {
     final fileTitle = widget.file.title ?? '';
+    final fileDescription = widget.file.description ?? '';
     //
     return Scaffold(
-      appBar: AppBar(title: Text(fileTitle)),
+      appBar: AppBar(
+        title: Text(fileTitle),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Удалть файл',
+            onPressed: () {
+              String id = widget.file.id ?? '';
+              DirectusSingleton.instance.files.deleteOne(id).then((_) {
+                Navigator.of(context).pop('Delete');
+              });
+              // handle the press
+            },
+          ),
+        ],
+      ),
       body: FilePropsPageContent(
         formKey: formKey,
         title: fileTitle,
+        description: fileDescription,
         onTitleSaved: (value) => newTitle = value,
+        onDescriptionSaved: (value) => newDescription = value,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           if (formKey.currentState != null &&
               formKey.currentState!.validate()) {
             formKey.currentState!.save();
-            widget.file.title = newTitle;
-            Navigator.of(context).pop(true);
+
+            String id = widget.file.id ?? '';
+            DirectusSingleton.instance.files.handler
+                .updateOne(
+              data: DirectusFile(title: newTitle, description: newDescription),
+              id: id,
+            )
+                .then((_) {
+              widget.file.title = newTitle;
+              widget.file.description = newDescription;
+              Navigator.of(context).pop('Save');
+            });
           }
         },
         tooltip: 'Сохранить',
@@ -44,13 +73,17 @@ class _FilePropsPageState extends State<FilePropsPage> {
 class FilePropsPageContent extends StatelessWidget {
   final Key formKey;
   final void Function(String value) onTitleSaved;
+  final void Function(String value) onDescriptionSaved;
   final String title;
+  final String description;
 
   const FilePropsPageContent({
     super.key,
     required this.formKey,
     required this.onTitleSaved,
+    required this.onDescriptionSaved,
     required this.title,
+    required this.description,
   });
 
   @override
@@ -60,16 +93,30 @@ class FilePropsPageContent extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Text('*Title'),
+            const SizedBox(height: 8),
             InputTextForm(
               text: title,
-              textInputAction: TextInputAction.next,
               hintText: 'A unique title',
+              capitalization: false,
+              multiline: false,
               validator: (value) {
                 if (value.isEmpty) return '*Поле не заполнено';
                 return '';
               },
               onSaved: onTitleSaved,
+            ),
+            const SizedBox(height: 16),
+            const Text('Description'),
+            const SizedBox(height: 8),
+            InputTextForm(
+              text: description,
+              hintText: 'An optional description',
+              capitalization: true,
+              multiline: true,
+              onSaved: onDescriptionSaved,
             ),
           ],
         ),
@@ -83,9 +130,9 @@ class InputTextForm extends StatelessWidget {
   final void Function(String value)? onChanged;
   final String Function(String value)? validator;
   final bool capitalization;
-  final TextInputAction? textInputAction;
   final String hintText;
   final String? text;
+  final bool multiline;
 
   const InputTextForm({
     Key? key,
@@ -93,9 +140,9 @@ class InputTextForm extends StatelessWidget {
     required this.hintText,
     this.validator,
     this.text,
-    this.capitalization = true,
+    required this.capitalization,
+    required this.multiline,
     this.onChanged,
-    this.textInputAction,
   }) : super(key: key);
 
   @override
@@ -103,7 +150,9 @@ class InputTextForm extends StatelessWidget {
     return TextFormField(
       initialValue: text,
       autofocus: false,
-      textInputAction: textInputAction,
+      keyboardType: multiline ? TextInputType.multiline : null,
+      maxLines: multiline ? null : 1,
+      minLines: multiline ? 3 : null,
       textCapitalization: capitalization
           ? TextCapitalization.sentences
           : TextCapitalization.none,

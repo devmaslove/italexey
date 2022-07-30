@@ -27,5 +27,23 @@ class FilesBloc extends Bloc<FilesEvent, FilesState> {
     on<FilesClearEvent>((event, emit) async {
       emit(FilesEmptyState());
     });
+    on<FilesDeleteOneEvent>((event, emit) async {
+      if (state is FilesLoadedState) {
+        final filesOld = (state as FilesLoadedState).files;
+        final files = filesOld.where((file) => file.id != event.id).toList();
+        emit(FilesLoadedState(files: files));
+      }
+    });
+    on<FilesChangeOneEvent>((event, emit) async {
+      if (state is FilesLoadedState) {
+        final filesOld = (state as FilesLoadedState).files;
+        final index = filesOld.indexWhere((file) => file.id == event.file.id);
+        if (index != -1) {
+          final files = [...filesOld];
+          files[index] = event.file;
+          emit(FilesLoadedState(files: files));
+        }
+      }
+    });
   }
 }

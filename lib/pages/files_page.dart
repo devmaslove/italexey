@@ -176,15 +176,24 @@ class FilesList extends StatelessWidget {
                   title: Text(fileTitle),
                   subtitle: Text('$fileExt • $fileSize'),
                   onTap: () {
-                    Navigator.push<bool>(
+                    Navigator.push<String>(
                       context,
-                      MaterialPageRoute<bool>(
+                      MaterialPageRoute<String>(
                         builder: (context) => FilePropsPage(file: file),
                       ),
                     ).then((change) {
-                      if (change != null && change) {
-                        final fileTitleNew = file.title ?? '';
-                        debugPrint('changed file - $fileTitleNew');
+                      if (change == null) return;
+                      switch (change) {
+                        case 'Save':
+                          debugPrint('changed file - ${file.title ?? ''}');
+                          final filesBloc = context.read<FilesBloc>();
+                          filesBloc.add(FilesChangeOneEvent(file: file));
+                          break;
+                        case 'Delete':
+                          debugPrint('delete file - ${file.title ?? ''}');
+                          final filesBloc = context.read<FilesBloc>();
+                          filesBloc.add(FilesDeleteOneEvent(id: file.id ?? ''));
+                          break;
                       }
                     });
                   },
