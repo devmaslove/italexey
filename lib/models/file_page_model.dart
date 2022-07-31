@@ -32,6 +32,11 @@ enum DirectusThumbnailFormat {
 }
 
 extension FilePageModel on DirectusFile {
+  String fileUrl() {
+    final url = downloadUrl(AppEnv.link);
+    return url ?? '';
+  }
+
   String thumbnailUrl({
     required int width,
     required int height,
@@ -94,4 +99,6 @@ extension FilePageModel on DirectusFile {
 
   bool get isImage =>
       type != null && type!.startsWith('image/') && type! != 'image/svg+xml';
+
+  bool get isVideo => type != null && type! == 'video/mp4';
 }

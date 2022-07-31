@@ -1,7 +1,9 @@
+import 'package:chewie/chewie.dart';
 import 'package:directus/directus.dart';
 import 'package:flutter/material.dart';
 import 'package:italexey/models/file_page_model.dart';
 import 'package:italexey/resources/env.dart';
+import 'package:video_player/video_player.dart';
 
 class FilePropsPage extends StatefulWidget {
   final DirectusFile file;
@@ -24,7 +26,7 @@ class _FilePropsPageState extends State<FilePropsPage> {
     int previewWidth = widget.file.width ?? 0;
     final fileTitle = widget.file.getFileTitle();
     final fileExt = widget.file.getFileExt();
-    String url = '';
+    String url = widget.file.fileUrl();
     FilePreviewType previewType = FilePreviewType.other;
     if (widget.file.isImage) {
       if (previewHeight > maxHeight) {
@@ -40,6 +42,8 @@ class _FilePropsPageState extends State<FilePropsPage> {
         quality: 80,
         format: DirectusThumbnailFormat.jpg,
       );
+    } else if (widget.file.isVideo) {
+      previewType = FilePreviewType.video;
     }
     final fileDescription = widget.file.getFileDescription();
     //
@@ -60,16 +64,18 @@ class _FilePropsPageState extends State<FilePropsPage> {
           ),
         ],
       ),
-      body: FilePropsPageContent(
-        formKey: formKey,
-        title: fileTitle,
-        description: fileDescription,
-        onTitleSaved: (value) => newTitle = value,
-        onDescriptionSaved: (value) => newDescription = value,
-        previewFileExt: fileExt,
-        previewUrl: url,
-        previewHeight: maxHeight,
-        previewType: previewType,
+      body: SingleChildScrollView(
+        child: FilePropsPageContent(
+          formKey: formKey,
+          title: fileTitle,
+          description: fileDescription,
+          onTitleSaved: (value) => newTitle = value,
+          onDescriptionSaved: (value) => newDescription = value,
+          previewFileExt: fileExt,
+          previewUrl: url,
+          previewHeight: maxHeight,
+          previewType: previewType,
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -243,7 +249,7 @@ enum FilePreviewType {
   other,
 }
 
-class FilePreview extends StatelessWidget {
+class FilePreview extends StatefulWidget {
   final String ext;
   final String downloadLink;
   final int height;
@@ -257,6 +263,45 @@ class FilePreview extends StatelessWidget {
     required this.type,
   });
 
+  @override
+  State<FilePreview> createState() => _FilePreviewState();
+}
+
+class _FilePreviewState extends State<FilePreview> {
+  bool showVideo = false;
+  late VideoPlayerController videoPlayerController;
+  late ChewieController chewieController;
+
+  @override
+  void initState() {
+    super.initState();
+    String videoLink = widget.downloadLink;
+    // в вебе не поддерживают httpHeaders
+    // по этому прокидываем access_token в ссылку
+    final videoLinkWithAccessToken = videoLink.contains('?')
+        ? '$videoLink&access_token=${AppEnv.token}'
+        : '$videoLink?access_token=${AppEnv.token}';
+    // debugPrint('download video = $videoLinkWithAccessToken');
+    videoPlayerController = VideoPlayerController.network(
+      videoLinkWithAccessToken,
+    );
+    if (widget.type == FilePreviewType.video) {
+      videoPlayerController.initialize().then((value) {
+        setState(() => showVideo = true);
+      });
+    }
+    chewieController = ChewieController(
+      videoPlayerController: videoPlayerController,
+    );
+  }
+
+  @override
+  void dispose() {
+    chewieController.dispose();
+    videoPlayerController.dispose();
+    super.dispose();
+  }
+
   Widget get fileIconWidget => Stack(
         children: [
           const Icon(
@@ -268,7 +313,7 @@ class FilePreview extends StatelessWidget {
             width: 64,
             top: 36,
             child: Text(
-              ext,
+              widget.ext,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 13,
@@ -281,15 +326,20 @@ class FilePreview extends StatelessWidget {
       );
 
   Widget get imageThumbWidget => Image.network(
-        downloadLink,
+        widget.downloadLink,
         fit: BoxFit.fitHeight,
-        height: height.toDouble(),
+        height: widget.height.toDouble(),
         errorBuilder: (_, __, ___) => Center(child: fileIconWidget),
         headers: const {'Authorization': 'Bearer ${AppEnv.token}'},
       );
 
+  Widget get playerWidget => Chewie(
+        controller: chewieController,
+      );
+
   Widget getPreviewWidget() {
-    if (type == FilePreviewType.image) return imageThumbWidget;
+    if (widget.type == FilePreviewType.image) return imageThumbWidget;
+    if (showVideo != false) return playerWidget;
     return fileIconWidget;
   }
 
@@ -297,7 +347,7 @@ class FilePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: height.toDouble(),
+      height: widget.height.toDouble(),
       alignment: Alignment.center,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
