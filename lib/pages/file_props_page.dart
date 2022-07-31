@@ -1,5 +1,7 @@
 import 'package:directus/directus.dart';
 import 'package:flutter/material.dart';
+import 'package:italexey/models/file_page_model.dart';
+import 'package:italexey/resources/env.dart';
 
 class FilePropsPage extends StatefulWidget {
   final DirectusFile file;
@@ -17,8 +19,29 @@ class _FilePropsPageState extends State<FilePropsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final fileTitle = widget.file.title ?? '';
-    final fileDescription = widget.file.description ?? '';
+    const maxHeight = 200;
+    int previewHeight = widget.file.height ?? 0;
+    int previewWidth = widget.file.width ?? 0;
+    final fileTitle = widget.file.getFileTitle();
+    final fileExt = widget.file.getFileExt();
+    String url = '';
+    FilePreviewType previewType = FilePreviewType.other;
+    if (widget.file.isImage) {
+      if (previewHeight > maxHeight) {
+        final ratio = widget.file.getImageRatio();
+        previewHeight = maxHeight;
+        previewWidth = (maxHeight * ratio).ceil();
+      }
+      previewType = FilePreviewType.image;
+      url = widget.file.thumbnailUrl(
+        fit: DirectusThumbnailFit.cover,
+        width: previewWidth,
+        height: previewHeight,
+        quality: 80,
+        format: DirectusThumbnailFormat.jpg,
+      );
+    }
+    final fileDescription = widget.file.getFileDescription();
     //
     return Scaffold(
       appBar: AppBar(
@@ -43,6 +66,10 @@ class _FilePropsPageState extends State<FilePropsPage> {
         description: fileDescription,
         onTitleSaved: (value) => newTitle = value,
         onDescriptionSaved: (value) => newDescription = value,
+        previewFileExt: fileExt,
+        previewUrl: url,
+        previewHeight: maxHeight,
+        previewType: previewType,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -51,6 +78,9 @@ class _FilePropsPageState extends State<FilePropsPage> {
             formKey.currentState!.save();
 
             String id = widget.file.id ?? '';
+            // не хватило функционала в пакете Directus
+            // запостил пул-реквест
+            // ну а пока будет с варнингом
             DirectusSingleton.instance.files.handler
                 .updateOne(
               data: DirectusFile(title: newTitle, description: newDescription),
@@ -76,6 +106,10 @@ class FilePropsPageContent extends StatelessWidget {
   final void Function(String value) onDescriptionSaved;
   final String title;
   final String description;
+  final int previewHeight;
+  final String previewUrl;
+  final String previewFileExt;
+  final FilePreviewType previewType;
 
   const FilePropsPageContent({
     super.key,
@@ -84,6 +118,10 @@ class FilePropsPageContent extends StatelessWidget {
     required this.onDescriptionSaved,
     required this.title,
     required this.description,
+    required this.previewHeight,
+    required this.previewUrl,
+    required this.previewFileExt,
+    required this.previewType,
   });
 
   @override
@@ -95,6 +133,13 @@ class FilePropsPageContent extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            FilePreview(
+              height: previewHeight,
+              ext: previewFileExt,
+              downloadLink: previewUrl,
+              type: previewType,
+            ),
+            const SizedBox(height: 16),
             const Text('*Title'),
             const SizedBox(height: 8),
             InputTextForm(
@@ -188,6 +233,78 @@ class InputTextForm extends StatelessWidget {
       },
       onSaved: (value) => onSaved(value ?? ''),
       onChanged: (value) => onChanged?.call(value),
+    );
+  }
+}
+
+enum FilePreviewType {
+  image,
+  video,
+  other,
+}
+
+class FilePreview extends StatelessWidget {
+  final String ext;
+  final String downloadLink;
+  final int height;
+  final FilePreviewType type;
+
+  const FilePreview({
+    super.key,
+    required this.ext,
+    required this.downloadLink,
+    required this.height,
+    required this.type,
+  });
+
+  Widget get fileIconWidget => Stack(
+        children: [
+          const Icon(
+            Icons.insert_drive_file_outlined,
+            size: 64,
+            color: Colors.blue,
+          ),
+          Positioned(
+            width: 64,
+            top: 36,
+            child: Text(
+              ext,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Colors.blue,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      );
+
+  Widget get imageThumbWidget => Image.network(
+        downloadLink,
+        fit: BoxFit.fitHeight,
+        height: height.toDouble(),
+        errorBuilder: (_, __, ___) => Center(child: fileIconWidget),
+        headers: const {'Authorization': 'Bearer ${AppEnv.token}'},
+      );
+
+  Widget getPreviewWidget() {
+    if (type == FilePreviewType.image) return imageThumbWidget;
+    return fileIconWidget;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: height.toDouble(),
+      alignment: Alignment.center,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.black12,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: getPreviewWidget(),
     );
   }
 }

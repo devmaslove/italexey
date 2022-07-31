@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:italexey/bloc/files_bloc.dart';
 import 'package:italexey/bloc/files_event.dart';
 import 'package:italexey/bloc/files_state.dart';
+import 'package:italexey/models/file_page_model.dart';
 import 'package:italexey/pages/file_props_page.dart';
 import 'package:italexey/resources/env.dart';
 
@@ -130,15 +131,17 @@ class FilesList extends StatelessWidget {
             itemCount: state.files.length,
             itemBuilder: (context, index) {
               final file = state.files.elementAt(index);
-              final fileTitle = file.title ?? '';
-              final fileExt = getFileExt(file.filenameDisk);
-              final fileSize = getFileSize(file.filesize);
-              final fileType = file.type ?? '';
-              final isImage =
-                  fileType.startsWith('image/') && fileType != 'image/svg+xml';
-              final fileLink = file.downloadUrl(AppEnv.link) ?? '';
-              final imageThumb =
-                  '$fileLink?fit=cover&width=48&height=48&quality=50&format=jpg';
+              final fileTitle = file.getFileTitle();
+              final fileExt = file.getFileExt();
+              final fileSize = file.getFileSize();
+              final isImage = file.isImage;
+              final imageThumb = file.thumbnailUrl(
+                fit: DirectusThumbnailFit.cover,
+                width: 48,
+                height: 48,
+                quality: 50,
+                format: DirectusThumbnailFormat.jpg,
+              );
               // debugPrint('File: "$fileTitle" type = ${file.type}');
               // debugPrint(imageThumb);
               final fileIconWidget = Stack(
